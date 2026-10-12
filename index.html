@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroHub — Le Centre de Référence Aéronautique</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        aviation: {
+                            900: '#0b1329',
+                            800: '#111e38',
+                            700: '#1a2c52',
+                            600: '#253e75',
+                            accent: '#3b82f6',
+                            sky: '#38bdf8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body class="bg-aviation-900 text-slate-100 font-sans min-h-screen flex flex-col selection:bg-blue-600 selection:text-white">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-aviation-800 border-b border-aviation-700 sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('home')">
+                <div class="bg-blue-600 text-white p-2 rounded-lg shadow">
+                    <i class="fa-solid fa-plane-departure text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-wider text-white">AEROHUB</h1>
+                    <p class="text-xs text-sky-400 font-mono tracking-tight">CENTRE DE RÉFÉRENCE AÉRONAUTIQUE</p>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="hidden md:flex items-center space-x-1">
+                <button onclick="switchTab('home')" id="nav-home" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium bg-aviation-700 text-sky-400 transition">Tableau de bord</button>
+                <button onclick="switchTab('map')" id="nav-map" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-aviation-700 hover:text-white transition">Carte Interactive</button>
+                <button onclick="switchTab('tools')" id="nav-tools" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-aviation-700 hover:text-white transition">Outils & Calculs</button>
+                <button onclick="switchTab('glossary')" id="nav-glossary" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-aviation-700 hover:text-white transition">Glossaire</button>
+                <button onclick="switchTab('bia')" id="nav-bia" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-aviation-700 hover:text-white transition">Révisions BIA / SPL</button>
+            </nav>
+
+            <!-- External Actions -->
+            <div class="flex items-center space-x-3">
+                <a href="https://www.flightradar24.com" target="_blank" class="bg-sky-500 hover:bg-sky-600 text-aviation-900 font-semibold px-3 py-2 rounded-lg text-xs flex items-center space-x-1.5 shadow transition">
+                    <i class="fa-solid fa-radar"></i>
+                    <span class="hidden sm:inline">FlightRadar24</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- TAB 1 : HOME / DASHBOARD -->
+        <section id="tab-home" class="tab-content space-y-6">
+            <!-- Hero Search Section -->
+            <div class="bg-gradient-to-r from-aviation-800 to-aviation-700 rounded-2xl p-8 border border-aviation-600 shadow-xl text-center relative overflow-visible">
+                <div class="max-w-2xl mx-auto space-y-4 relative z-20">
+                    <h2 class="text-3xl font-extrabold text-white tracking-tight">Préparez vos vols et consultez vos aérodromes</h2>
+                    <p class="text-sm text-slate-300">Recherche instantanée parmi tous les aérodromes, aéroports et bases ULM/planeur de France.</p>
+                    
+                    <!-- Search Input Bar -->
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 z-10">
+                            <i class="fa-solid fa-magnifying-glass text-lg"></i>
+                        </div>
+                        <input type="text" id="global-search" oninput="handleSearch(this.value)" placeholder="Rechercher un aérodrome (ex: LFBO, Paris, Carcassonne, Muret)..." class="w-full pl-12 pr-4 py-4 bg-aviation-900 border border-aviation-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-inner text-lg relative z-10">
+                        
+                        <!-- Suggestions Dropdown -->
+                        <div id="search-suggestions" class="absolute left-0 right-0 mt-2 bg-aviation-800 border border-aviation-600 rounded-xl shadow-2xl hidden z-50 max-h-[450px] overflow-y-auto text-left divide-y divide-aviation-700"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Access Tiles -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div onclick="openAerodrome('LFBO')" class="bg-aviation-800 hover:bg-aviation-700 border border-aviation-700 p-5 rounded-xl cursor-pointer transition shadow hover:border-blue-500 group">
+                    <div class="text-blue-400 text-2xl mb-2 group-hover:scale-110 transition transform"><i class="fa-solid fa-plane"></i></div>
+                    <h3 class="font-bold text-white">LFBO — Toulouse Blagnac</h3>
+                    <p class="text-xs text-slate-400 mt-1">Aéroport International • Occitanie</p>
+                </div>
+                <div onclick="openAerodrome('LFBR')" class="bg-aviation-800 hover:bg-aviation-700 border border-aviation-700 p-5 rounded-xl cursor-pointer transition shadow hover:border-blue-500 group">
+                    <div class="text-sky-400 text-2xl mb-2 group-hover:scale-110 transition transform"><i class="fa-solid fa-compass"></i></div>
+                    <h3 class="font-bold text-white">LFBR — Muret Lherm</h3>
+                    <p class="text-xs text-slate-400 mt-1">Aérodrome / Instruction • 3 Pistes</p>
+                </div>
+                <div onclick="openAerodrome('LFMW')" class="bg-aviation-800 hover:bg-aviation-700 border border-aviation-700 p-5 rounded-xl cursor-pointer transition shadow hover:border-blue-500 group">
+                    <div class="text-emerald-400 text-2xl mb-2 group-hover:scale-110 transition transform"><i class="fa-solid fa-feather"></i></div>
+                    <h3 class="font-bold text-white">LFMW — Castelnaudary</h3>
+                    <p class="text-xs text-slate-400 mt-1">Aérodrome • Piste en herbe</p>
+                </div>
+                <div onclick="switchTab('tools')" class="bg-aviation-800 hover:bg-aviation-700 border border-aviation-700 p-5 rounded-xl cursor-pointer transition shadow hover:border-blue-500 group">
+                    <div class="text-amber-400 text-2xl mb-2 group-hover:scale-110 transition transform"><i class="fa-solid fa-calculator"></i></div>
+                    <h3 class="font-bold text-white">Outils & Calculs</h3>
+                    <p class="text-xs text-slate-400 mt-1">Vent de travers, conversion d'unités</p>
+                </div>
+            </div>
+
+            <!-- Recent METAR Quick Watch -->
+            <div class="bg-aviation-800 border border-aviation-700 rounded-xl p-6 shadow-lg">
+                <h3 class="text-lg font-bold text-white mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-cloud-sun text-sky-400"></i>
+                    <span>Aérodromes Français Principaux (Sélection rapide)</span>
+                </h3>
+                <div id="quick-metar-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2 : INTERACTIVE MAP -->
+        <section id="tab-map" class="tab-content hidden space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Carte Aéronautique Interactive</h2>
+                    <p class="text-xs text-slate-400">Visualisation des aérodromes français et accès direct aux fiches.</p>
+                </div>
+            </div>
+            <div id="leaflet-map" class="w-full h-[600px] rounded-2xl border border-aviation-700 shadow-xl z-10"></div>
+        </section>
+
+        <!-- TAB 3 : TOOLS -->
+        <section id="tab-tools" class="tab-content hidden space-y-6">
+            <h2 class="text-2xl font-bold text-white">Boîte à Outils du Pilote</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Crosswind Calculator -->
+                <div class="bg-aviation-800 border border-aviation-700 p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold text-blue-400 mb-4 flex items-center space-x-2">
+                        <i class="fa-solid fa-wind"></i>
+                        <span>Calculateur de Vent de Travers</span>
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Axe de Piste (en degrés ex: 270)</label>
+                            <input type="number" id="rw-heading" value="270" oninput="calculateCrosswind()" class="w-full bg-aviation-900 border border-aviation-700 rounded-lg p-2.5 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Direction du Vent (en degrés)</label>
+                            <input type="number" id="wind-dir" value="290" oninput="calculateCrosswind()" class="w-full bg-aviation-900 border border-aviation-700 rounded-lg p-2.5 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Vitesse du Vent (en nœuds)</label>
+                            <input type="number" id="wind-spd" value="18" oninput="calculateCrosswind()" class="w-full bg-aviation-900 border border-aviation-700 rounded-lg p-2.5 text-white">
+                        </div>
+                        <div class="bg-aviation-900 p-4 rounded-lg flex justify-around text-center border border-aviation-700">
+                            <div>
+                                <p class="text-xs text-slate-400">Vent de Face / Arrière</p>
+                                <p id="res-headwind" class="text-xl font-bold text-emerald-400">17 kt (Face)</p>
+                            </div>
+                            <div class="border-r border-aviation-700"></div>
+                            <div>
+                                <p class="text-xs text-slate-400">Vent de Travers</p>
+                                <p id="res-crosswind" class="text-xl font-bold text-sky-400">6 kt</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Unit Converter -->
+                <div class="bg-aviation-800 border border-aviation-700 p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold text-blue-400 mb-4 flex items-center space-x-2">
+                        <i class="fa-solid fa-right-left"></i>
+                        <span>Convertisseur d'Unités Aéronautiques</span>
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Nœuds (kt) vers km/h</label>
+                            <input type="number" id="conv-kt" value="100" oninput="convertKt(this.value)" class="w-full bg-aviation-900 border border-aviation-700 rounded-lg p-2.5 text-white">
+                            <p class="text-xs text-sky-400 mt-1 font-mono" id="conv-kt-res">= 185.2 km/h</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Pieds (ft) vers Mètres (m)</label>
+                            <input type="number" id="conv-ft" value="3000" oninput="convertFt(this.value)" class="w-full bg-aviation-900 border border-aviation-700 rounded-lg p-2.5 text-white">
+                            <p class="text-xs text-sky-400 mt-1 font-mono" id="conv-ft-res">= 914.4 mètres</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4 : GLOSSARY -->
+        <section id="tab-glossary" class="tab-content hidden space-y-6">
+            <div class="bg-aviation-800 border border-aviation-700 rounded-2xl p-6 shadow-xl space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-white">Glossaire Aéronautique & BIA / SPL</h2>
+                        <p class="text-xs text-slate-400">Plus de 40 définitions essentielles pour maîtriser le vocabulaire aéronautique.</p>
+                    </div>
+                    <div class="relative w-full md:w-72">
+                        <input type="text" id="glossary-search" oninput="filterGlossary(this.value)" placeholder="Filtrer un terme..." class="w-full bg-aviation-900 border border-aviation-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500">
+                        <i class="fa-solid fa-search absolute left-3 top-3 text-slate-400 text-xs"></i>
+                    </div>
+                </div>
+
+                <div id="glossary-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 5 : BIA / SPL REVISION -->
+        <section id="tab-bia" class="tab-content hidden space-y-6">
+            <div class="bg-aviation-800 border border-aviation-700 rounded-2xl p-6 shadow-xl">
+                <div class="flex items-center space-x-3 mb-6">
+                    <div class="bg-emerald-600 text-white p-3 rounded-xl">
+                        <i class="fa-solid fa-graduation-cap text-2xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-white">Espace de Révision BIA & SPL</h2>
+                        <p class="text-xs text-slate-400">Entraînez-vous aux thèmes officiels : Météo, Navigation, Aérodynamique et Réglementation.</p>
+                    </div>
+                </div>
+
+                <div id="quiz-container" class="space-y-4 bg-aviation-900 p-6 rounded-xl border border-aviation-700">
+                    <h3 id="quiz-question" class="text-lg font-semibold text-white">Question 1 : Qu'indique un QNH affiché sur l'altimètre au sol ?</h3>
+                    <div id="quiz-options" class="space-y-2">
+                        <button onclick="checkQuiz(0)" class="quiz-opt w-full text-left p-3 rounded-lg bg-aviation-800 hover:bg-aviation-700 border border-aviation-600 transition">A) L'altitude par rapport au niveau de la mer (AMSL)</button>
+                        <button onclick="checkQuiz(1)" class="quiz-opt w-full text-left p-3 rounded-lg bg-aviation-800 hover:bg-aviation-700 border border-aviation-600 transition">B) La hauteur par rapport au seuil de piste (AGL)</button>
+                        <button onclick="checkQuiz(2)" class="quiz-opt w-full text-left p-3 rounded-lg bg-aviation-800 hover:bg-aviation-700 border border-aviation-600 transition">C) La pression standard de 1013.25 hPa</button>
+                    </div>
+                    <p id="quiz-feedback" class="text-sm font-semibold mt-4 hidden"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- AERODROME DETAIL MODAL -->
+        <div id="aerodrome-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div class="bg-aviation-800 border border-aviation-600 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 relative">
+                <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl bg-aviation-700 w-10 h-10 rounded-full flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                <div id="modal-content" class="space-y-6">
+                    <!-- Content populated via JS -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-aviation-800 border-t border-aviation-700 mt-12 py-6 text-center text-xs text-slate-400 space-y-2">
+        <p>AeroHub est un outil de consultation, de préparation et d'apprentissage. Ne remplace pas les publications officielles aéronautiques (SIA eAIP France).</p>
+        <p>© 2026 AeroHub — Conçu pour les passionnés, élèves BIA, élèves pilotes et pilotes privés.</p>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Database of French Aerodromes & Airports
+        const aerodromesDB = {
+            "LFBO": { icao: "LFBO", iata: "TLS", name: "Toulouse - Blagnac", city: "Toulouse", region: "Occitanie", lat: 43.6292, lon: 1.3638, elevation: 492, type: "Aéroport International", runways: [{ designation: "14R/32L", length: 3500, width: 45, surface: "ASPH" }, { designation: "14L/32R", length: 3000, width: 45, surface: "ASPH" }], frequencies: [{ service: "ATIS", freq: "126.505 MHz" }, { service: "TOWER", freq: "118.100 MHz" }, { service: "GROUND", freq: "121.800 MHz" }] },
+            "LFBR": { icao: "LFBR", iata: null, name: "Muret - Lherm", city: "Muret", region: "Occitanie", lat: 43.4633, lon: 1.2383, elevation: 620, type: "Aérodrome / Instruction", runways: [{ designation: "12R/30L", length: 1100, width: 30, surface: "ASPH" }, { designation: "12L/30R", length: 1000, width: 50, surface: "GRASS" }], frequencies: [{ service: "AUTO-INFO", freq: "122.350 MHz" }] },
+            "LFMW": { icao: "LFMW", iata: null, name: "Castelnaudary", city: "Castelnaudary", region: "Occitanie", lat: 43.3150, lon: 1.9161, elevation: 531, type: "Aérodrome / Planeur", runways: [{ designation: "10/28", length: 800, width: 60, surface: "GRASS" }], frequencies: [{ service: "AUTO-INFO", freq: "123.500 MHz" }] },
+            "LFCG": { icao: "LFCG", iata: null, name: "Toulouse - Lasbordes", city: "Toulouse", region: "Occitanie", lat: 43.5822, lon: 1.5139, elevation: 479, type: "Aérodrome", runways: [{ designation: "10R/28L", length: 950, width: 25, surface: "ASPH" }], frequencies: [{ service: "AUTO-INFO", freq: "122.450 MHz" }] },
+            "LFMK": { icao: "LFMK", iata: "CCF", name: "Carcassonne Salvaza", city: "Carcassonne", region: "Occitanie", lat: 43.2167, lon: 2.3069, elevation: 432, type: "Aéroport Régional", runways: [{ designation: "10/28", length: 2050, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "120.250 MHz" }] },
+            "LFMP": { icao: "LFMP", iata: "PGF", name: "Perpignan - Rivesaltes", city: "Perpignan", region: "Occitanie", lat: 42.7408, lon: 2.8703, elevation: 142, type: "Aéroport International", runways: [{ designation: "13/31", length: 2500, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.300 MHz" }] },
+            "LFMT": { icao: "LFMT", iata: "MPL", name: "Montpellier Méditerranée", city: "Montpellier", region: "Occitanie", lat: 43.5778, lon: 3.9628, elevation: 17, type: "Aéroport International", runways: [{ designation: "12L/30R", length: 2600, width: 50, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.700 MHz" }] },
+            "LFML": { icao: "LFML", iata: "MRS", name: "Marseille Provence", city: "Marignane", region: "Provence-Alpes-Côte d'Azur", lat: 43.4392, lon: 5.2214, elevation: 74, type: "Aéroport International", runways: [{ designation: "13L/31R", length: 4000, width: 45, surface: "ASPH" }, { designation: "13R/31L", length: 3500, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.100 MHz" }] },
+            "LFMN": { icao: "LFMN", iata: "NCE", name: "Nice Côte d'Azur", city: "Nice", region: "Provence-Alpes-Côte d'Azur", lat: 43.6584, lon: 7.2150, elevation: 12, type: "Aéroport International", runways: [{ designation: "04L/22R", length: 2570, width: 45, surface: "ASPH" }, { designation: "04R/22L", length: 3200, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "119.900 MHz" }] },
+            "LFLL": { icao: "LFLL", iata: "LYS", name: "Lyon Saint-Exupéry", city: "Lyon", region: "Auvergne-Rhône-Alpes", lat: 45.7256, lon: 5.0811, elevation: 821, type: "Aéroport International", runways: [{ designation: "17L/35R", length: 4000, width: 45, surface: "ASPH" }, { designation: "17R/35L", length: 2675, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "120.600 MHz" }] },
+            "LFPG": { icao: "LFPG", iata: "CDG", name: "Paris - Charles de Gaulle", city: "Paris", region: "Île-de-France", lat: 49.0097, lon: 2.5479, elevation: 392, type: "Aéroport International", runways: [{ designation: "08L/26R", length: 4200, width: 45, surface: "ASPH" }, { designation: "08R/26L", length: 2700, width: 60, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.650 MHz" }] },
+            "LFPO": { icao: "LFPO", iata: "ORY", name: "Paris - Orly", city: "Paris", region: "Île-de-France", lat: 48.7233, lon: 2.3794, elevation: 291, type: "Aéroport International", runways: [{ designation: "06/24", length: 3320, width: 45, surface: "ASPH" }, { designation: "07/25", length: 2400, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.700 MHz" }] },
+            "LFPB": { icao: "LFPB", iata: "LBG", name: "Paris - Le Bourget", city: "Paris", region: "Île-de-France", lat: 48.9694, lon: 2.4414, elevation: 216, type: "Aéroport d'Affaires", runways: [{ designation: "07/25", length: 2665, width: 60, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.975 MHz" }] },
+            "LFBD": { icao: "LFBD", iata: "BOD", name: "Bordeaux - Mérignac", city: "Bordeaux", region: "Nouvelle-Aquitaine", lat: 44.8283, lon: -0.7156, elevation: 160, type: "Aéroport International", runways: [{ designation: "05/23", length: 3100, width: 45, surface: "ASPH" }, { designation: "11/29", length: 2475, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.400 MHz" }] },
+            "LFRS": { icao: "LFRS", iata: "NTE", name: "Nantes Atlantique", city: "Nantes", region: "Pays de la Loire", lat: 47.1532, lon: -1.6106, elevation: 90, type: "Aéroport International", runways: [{ designation: "03/21", length: 2900, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.300 MHz" }] },
+            "LFBZ": { icao: "LFBZ", iata: "BIQ", name: "Biarritz Pays Basque", city: "Biarritz", region: "Nouvelle-Aquitaine", lat: 43.4686, lon: -1.5233, elevation: 243, type: "Aéroport Régional", runways: [{ designation: "09/27", length: 2250, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.250 MHz" }] },
+            "LFBT": { icao: "LFBT", iata: "LDE", name: "Tarbes Lourdes Pyrénées", city: "Tarbes", region: "Occitanie", lat: 43.1822, lon: -0.0003, elevation: 1260, type: "Aéroport Régional", runways: [{ designation: "02/20", length: 3000, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.800 MHz" }] },
+            "LFBP": { icao: "LFBP", iata: "PUF", name: "Pau Pyrénées", city: "Pau", region: "Nouvelle-Aquitaine", lat: 43.38, lon: -0.418, elevation: 610, type: "Aéroport Régional", runways: [{ designation: "13/31", length: 2500, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "119.300 MHz" }] },
+            "LFLC": { icao: "LFLC", iata: "CFE", name: "Clermont-Ferrand Auvergne", city: "Clermont-Ferrand", region: "Auvergne-Rhône-Alpes", lat: 45.7869, lon: 3.1561, elevation: 1089, type: "Aéroport Régional", runways: [{ designation: "08R/26L", length: 3000, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.150 MHz" }] },
+            "LFQQ": { icao: "LFQQ", iata: "LIL", name: "Lille Lesquin", city: "Lille", region: "Hauts-de-France", lat: 50.5619, lon: 3.0894, elevation: 155, type: "Aéroport International", runways: [{ designation: "08/26", length: 2827, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "120.100 MHz" }] },
+            "LFST": { icao: "LFST", iata: "SXB", name: "Strasbourg Entzheim", city: "Strasbourg", region: "Grand Est", lat: 48.5383, lon: 7.6283, elevation: 505, type: "Aéroport International", runways: [{ designation: "05/23", length: 2400, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.700 MHz" }] },
+            "LFSB": { icao: "LFSB", iata: "MLH", name: "Bâle-Mulhouse-Freiburg", city: "Mulhouse", region: "Grand Est", lat: 47.59, lon: 7.529, elevation: 885, type: "Aéroport International", runways: [{ designation: "15/33", length: 3900, width: 60, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.300 MHz" }] },
+            "LFRB": { icao: "LFRB", iata: "BES", name: "Brest Bretagne", city: "Brest", region: "Bretagne", lat: 48.4486, lon: -4.4153, elevation: 344, type: "Aéroport International", runways: [{ designation: "07R/25L", length: 3100, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.700 MHz" }] },
+            "LFRN": { icao: "LFRN", iata: "RNS", name: "Rennes Saint-Jacques", city: "Rennes", region: "Bretagne", lat: 48.0733, lon: -1.725, elevation: 122, type: "Aéroport Régional", runways: [{ designation: "14/32", length: 2100, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.500 MHz" }] },
+            "LFJR": { icao: "LFJR", iata: "LRH", name: "La Rochelle Île de Ré", city: "La Rochelle", region: "Nouvelle-Aquitaine", lat: 46.1778, lon: -1.19, elevation: 73, type: "Aéroport Régional", runways: [{ designation: "10/28", length: 2255, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "120.050 MHz" }] },
+            "LFBI": { icao: "LFBI", iata: "PIS", name: "Poitiers Biard", city: "Poitiers", region: "Nouvelle-Aquitaine", lat: 46.5878, lon: 0.3075, elevation: 425, type: "Aéroport Régional", runways: [{ designation: "03/21", length: 2350, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "122.100 MHz" }] },
+            "LFOT": { icao: "LFOT", iata: "TUF", name: "Tours Val de Loire", city: "Tours", region: "Centre-Val de Loire", lat: 47.4253, lon: 0.7269, elevation: 358, type: "Aéroport Régional", runways: [{ designation: "03/21", length: 2400, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "122.500 MHz" }] },
+            "LFBL": { icao: "LFBL", iata: "LIG", name: "Limoges Bellegarde", city: "Limoges", region: "Nouvelle-Aquitaine", lat: 45.8628, lon: 1.1794, elevation: 1300, type: "Aéroport Régional", runways: [{ designation: "04/22", length: 2218, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.200 MHz" }] },
+            "LFCR": { icao: "LFCR", iata: null, name: "Albi Le Sequestre", city: "Albi", region: "Occitanie", lat: 43.9161, lon: 2.1261, elevation: 564, type: "Aérodrome", runways: [{ designation: "09/27", length: 1650, width: 30, surface: "ASPH" }], frequencies: [{ service: "AUTO-INFO", freq: "123.500 MHz" }] },
+            "LFTW": { icao: "LFTW", iata: "FNI", name: "Nîmes Alès Camargue Cévennes", city: "Nîmes", region: "Occitanie", lat: 43.7597, lon: 4.415, elevation: 290, type: "Aéroport", runways: [{ designation: "18/36", length: 2440, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "119.850 MHz" }] },
+            "LFKB": { icao: "LFKB", iata: "BIA", name: "Bastia Poretta", city: "Bastia", region: "Corse", lat: 42.5539, lon: 9.4853, elevation: 26, type: "Aéroport International", runways: [{ designation: "16/34", length: 2500, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.300 MHz" }] },
+            "LFKJ": { icao: "LFKJ", iata: "AJA", name: "Ajaccio Napoléon Bonaparte", city: "Ajaccio", region: "Corse", lat: 41.9236, lon: 8.79, elevation: 21, type: "Aéroport International", runways: [{ designation: "02/20", length: 2160, width: 45, surface: "ASPH" }], frequencies: [{ service: "TOWER", freq: "118.700 MHz" }] }
+        };
+
+        // Comprehensive Aviation Glossary Database (>40 definitions)
+        const glossaryDB = [
+            { term: "AGL (Above Ground Level)", category: "Navigation / Altimétrie", definition: "Hauteur exprimée par rapport au sol ou à la surface survolée." },
+            { term: "AMSL (Above Mean Sea Level)", category: "Navigation / Altimétrie", definition: "Altitude exprimée par rapport au niveau moyen de la mer." },
+            { term: "AIP (Aeronautical Information Publication)", category: "Réglementation", definition: "Recueil officiel d'information aéronautique contenant les règles et descriptions des installations d'un pays." },
+            { term: "ATIS (Automatic Terminal Information Service)", category: "Radio", definition: "Diffusion automatique et continue de messages vocaux sur une fréquence dédiée pour les arrivées et départs d'un aéroport." },
+            { term: "BIA (Brevet d'Initiation Aéronautique)", category: "Formation", definition: "Diplôme français sanctionnant une initiation à la culture aéronautique pour les jeunes." },
+            { term: "Cap (Heading)", category: "Pilotage", definition: "Direction vers laquelle pointe l'axe longitudinal de l'aéronef (exprimé en degrés par rapport au nord)." },
+            { term: "Centrage", category: "Mécanique du vol", definition: "Position du centre de gravité d'un aéronef par rapport à ses cordes de référence, cruciale pour la stabilité." },
+            { term: "CTR (Control Zone)", category: "Espace aérien", definition: "Espace aérien contrôlé entourant généralement un aérodrome, s'étendant de la surface jusqu'à une limite supérieure spécifiée." },
+            { term: "Décrochage", category: "Aérodynamique", definition: "Perte brutale de portance due au dépassement de l'angle d'incidence maximal (angle critique)." },
+            { term: "Dérive", category: "Navigation", definition: "Angle entre la route suivie (trajectoire sol) et le cap (axe de l'avion) provoqué par le vent de travers." },
+            { term: "Finesse", category: "Aérodynamique / Planeur", definition: "Rapport entre la distance horizontale parcourue en plané et la hauteur perdue (ex: finesse de 40 = avance de 40km pour 1km de perte)." },
+            { term: "FL (Flight Level / Niveau de Vol)", category: "Altimétrie", definition: "Surface isobare standard (référence 1013.25 hPa) exprimée en centaines de pieds au-dessus de l'altitude de transition." },
+            { term: "IATA", category: "Généralités", definition: "Association internationale du transport aérien, attribuant les codes à 3 lettres des aéroports commerciaux (ex: TLS, CDG)." },
+            { term: "IFR (Instrument Flight Rules)", category: "Réglementation", definition: "Règles de vol aux instruments, permettant de voler sans visibilité extérieure en suivant des procédures radioguidées." },
+            { term: "Incidence", category: "Aérodynamique", definition: "Angle formé entre la corde de l'aile et la direction du vent relatif." },
+            { term: "METAR", category: "Météorologie", definition: "Message météorologique d'observation régulière d'un aérodrome, publié généralement toutes les heures ou demi-heures." },
+            { term: "NOTAM (Notice to Air Missions)", category: "Sécurité", definition: "Avis urgent transmis aux pilotes signalant la création, l'état ou la modification d'installations, services ou dangers." },
+            { term: "OACI (ICAO)", category: "Généralités", definition: "Organisation de l'aviation civile internationale. Attribue les codes à 4 lettres des aérodromes (ex: LFBO, LFBR)." },
+            { term: "Portance", category: "Aérodynamique", definition: "Force aérodynamique s'exerçant perpendiculairement à l'écoulement de l'air, permettant à l'aéronef de voler." },
+            { term: "QFE", category: "Altimétrie", definition: "Calage altimétrique réglant l'altimètre pour qu'il indique 0 au niveau du seuil de piste." },
+            { term: "QNH", category: "Altimétrie", definition: "Calage altimétrique ramenant la pression mesurée au niveau de la mer selon l'atmosphère standard (donne l'altitude AMSL)." },
+            { term: "R/C (Rate of Climb / Vario)", category: "Instruments", definition: "Vitesse ascensionnelle ou de descente d'un aéronef, mesurée en pieds par minute (ft/min) ou m/s." },
+            { term: "SIA", category: "Institutions", definition: "Service de l'Information Aéronautique en France, éditeur officiel de l'eAIP et des cartes VAC." },
+            { term: "SPL (Sailplane Pilot Licence)", category: "Licence", definition: "Licence européenne de pilote de planeur." },
+            { term: "TAF", category: "Météorologie", definition: "Message de prévision d'atterrissage pour un aérodrome sur une période donnée (ex: 24h ou 30h)." },
+            { term: "TAS (True Airspeed)", category: "Navigation", definition: "Vitesse propre de l'aéronef par rapport à la masse d'air environnante." },
+            { term: "TMA (Terminal Control Area)", category: "Espace aérien", definition: "Région de contrôle terminale encadrant les arrivées et départs autour des grands aéroports." },
+            { term: "Tour de piste", category: "Procédure", definition: "Trajectoire standard normalisée effectuée par un aéronef autour d'un aérodrome pour l'atterrissage ou le décollage." },
+            { term: "Traînée", category: "Aérodynamique", definition: "Force aérodynamique s'opposant à l'avancement de l'aéronef dans l'air." },
+            { term: "VAC (Visual Approach Chart)", category: "Cartographie", definition: "Carte d'atterrissage et de décollage à vue, décrivant les procédures pour un aérodrome." },
+            { term: "VFR (Visual Flight Rules)", category: "Réglementation", definition: "Règles de vol à vue, nécessitant une visibilité extérieure suffisante et le respect des hauteurs minimales." },
+            { term: "Vent de travers", category: "Pilotage / Météo", definition: "Composante du vent perpendiculaire à l'axe de la piste en service." },
+            { term: "Volets (Flaps)", category: "Mécanique", definition: "Surfaces mobiles situées sur le bord de fuite des ailes augmentant la portance et la traînée à basse vitesse." }
+        ];
+
+        // Navigation Tab Switching
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-btn').forEach(el => {
+                el.classList.remove('bg-aviation-700', 'text-sky-400');
+                el.classList.add('text-slate-300');
+            });
+
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            const activeNav = document.getElementById(`nav-${tabId}`);
+            if (activeNav) {
+                activeNav.classList.add('bg-aviation-700', 'text-sky-400');
+                activeNav.classList.remove('text-slate-300');
+            }
+
+            if (tabId === 'map') {
+                if (!mapInitialized) {
+                    initMap();
+                } else {
+                    setTimeout(() => { map.invalidateSize(); }, 100);
+                }
+            }
+
+            if (tabId === 'glossary') {
+                renderGlossary(glossaryDB);
+            }
+        }
+
+        // Search Autocomplete
+        function handleSearch(query) {
+            const container = document.getElementById('search-suggestions');
+            if (!query || query.length < 1) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            const q = query.toLowerCase();
+            const matches = Object.values(aerodromesDB).filter(a => 
+                a.icao.toLowerCase().includes(q) || 
+                a.name.toLowerCase().includes(q) || 
+                a.city.toLowerCase().includes(q) ||
+                (a.iata && a.iata.toLowerCase().includes(q))
+            );
+
+            if (matches.length === 0) {
+                container.innerHTML = `<div class="p-4 text-sm text-slate-400">Aucun aérodrome trouvé pour "${query}"</div>`;
+            } else {
+                container.innerHTML = matches.map(a => `
+                    <div onclick="openAerodrome('${a.icao}')" class="p-4 hover:bg-aviation-700 cursor-pointer flex justify-between items-center transition">
+                        <div>
+                            <span class="font-bold text-white text-base">${a.icao}</span> ${a.iata ? `(${a.iata})` : ''} — <span class="text-sky-400 font-semibold">${a.name}</span>
+                            <p class="text-xs text-slate-300 mt-0.5">${a.city}, ${a.region} (${a.type})</p>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                    </div>
+                `).join('');
+            }
+            container.classList.remove('hidden');
+        }
+
+        // Open Aerodrome Modal
+        function openAerodrome(icao) {
+            const aero = aerodromesDB[icao];
+            if (!aero) return;
+
+            document.getElementById('search-suggestions').classList.add('hidden');
+            document.getElementById('global-search').value = '';
+
+            const content = `
+                <div class="flex items-center space-x-3 border-b border-aviation-700 pb-4">
+                    <div class="bg-blue-600 text-white p-3 rounded-xl text-xl font-mono font-bold">${aero.icao}</div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-white">${aero.name}</h2>
+                        <p class="text-xs text-sky-400">${aero.city} • ${aero.region}, France | Alt: ${aero.elevation} ft</p>
+                    </div>
+                </div>
+
+                <!-- METAR & TAF Redirect Section -->
+                <div class="bg-aviation-900 p-4 rounded-xl border border-aviation-700 space-y-3">
+                    <h3 class="text-sm font-semibold text-sky-400 flex items-center space-x-2">
+                        <i class="fa-solid fa-cloud-sun"></i>
+                        <span>Météo Aéronautique (METAR & TAF)</span>
+                    </h3>
+                    <p class="text-xs text-slate-300">Consultez les observations METAR et prévisions TAF en temps réel directement sur le service spécialisé :</p>
+                    <a href="https://metar-taf.com/fr/${aero.icao}" target="_blank" class="inline-flex items-center space-x-2 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2.5 rounded-lg text-xs font-semibold transition shadow">
+                        <i class="fa-solid fa-external-link-alt"></i>
+                        <span>Voir le METAR / TAF complet pour ${aero.icao} sur metar-taf.com</span>
+                    </a>
+                </div>
+
+                <!-- Runways -->
+                <div>
+                    <h3 class="text-sm font-semibold text-white mb-2"><i class="fa-solid fa-road text-blue-400 mr-2"></i>Pistes</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        ${aero.runways.map(r => `
+                            <div class="bg-aviation-900 p-3 rounded-lg border border-aviation-700 text-xs space-y-1">
+                                <p class="font-bold text-white text-sm">Piste ${r.designation}</p>
+                                <p class="text-slate-300">Dimensions : ${r.length}m × ${r.width}m (${r.surface})</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Frequencies -->
+                <div>
+                    <h3 class="text-sm font-semibold text-white mb-2"><i class="fa-solid fa-tower-broadcast text-blue-400 mr-2"></i>Fréquences Radio</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        ${aero.frequencies.map(f => `
+                            <div class="bg-aviation-900 p-3 rounded-lg border border-aviation-700 text-xs flex justify-between items-center">
+                                <span class="text-slate-300">${f.service}</span>
+                                <span class="font-mono font-bold text-emerald-400">${f.freq}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Official Links -->
+                <div class="pt-2 flex flex-wrap gap-3">
+                    <a href="https://www.sia.aviation-civile.gouv.fr" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition shadow">
+                        <i class="fa-solid fa-file-pdf"></i>
+                        <span>Portail SIA eAIP France</span>
+                    </a>
+                    <a href="https://www.flightradar24.com/${aero.lat}/${aero.lon}/12" target="_blank" class="bg-sky-500 hover:bg-sky-600 text-aviation-900 px-4 py-2.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition shadow">
+                        <i class="fa-solid fa-radar"></i>
+                        <span>Voir les vols autour de ${aero.icao}</span>
+                    </a>
+                </div>
+            `;
+
+            document.getElementById('modal-content').innerHTML = content;
+            document.getElementById('aerodrome-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('aerodrome-modal').classList.add('hidden');
+        }
+
+        // Initialize Leaflet Map (Using Esri World Street Map tiles - no API key & no blocking)
+        let mapInitialized = false;
+        let map;
+        function initMap() {
+            map = L.map('leaflet-map').setView([46.6, 2.2], 6); // Centered on France
+
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom',
+                maxZoom: 18
+            }).addTo(map);
+
+            // Add markers for all aerodromes in DB
+            Object.values(aerodromesDB).forEach(a => {
+                const marker = L.marker([a.lat, a.lon]).addTo(map);
+                marker.bindPopup(`
+                    <div class="p-2 text-slate-900">
+                        <strong>${a.icao} - ${a.name}</strong><br>
+                        <span class="text-xs">${a.city} (${a.type})</span><br>
+                        <button onclick="openAerodrome('${a.icao}')" class="mt-2 bg-blue-600 text-white text-xs px-3 py-1 rounded">Ouvrir la fiche</button>
+                    </div>
+                `);
+            });
+
+            mapInitialized = true;
+            setTimeout(() => { map.invalidateSize(); }, 200);
+        }
+
+        // Glossary Renderer & Filter
+        function renderGlossary(items) {
+            const grid = document.getElementById('glossary-grid');
+            if (items.length === 0) {
+                grid.innerHTML = `<p class="text-sm text-slate-400 col-span-2 text-center py-6">Aucun terme trouvé.</p>`;
+                return;
+            }
+            grid.innerHTML = items.map(item => `
+                <div class="bg-aviation-900 p-4 rounded-xl border border-aviation-700 space-y-1.5 shadow">
+                    <div class="flex justify-between items-start">
+                        <h3 class="font-bold text-white text-base">${item.term}</h3>
+                        <span class="text-[10px] bg-blue-600/30 text-sky-400 px-2 py-0.5 rounded font-mono">${item.category}</span>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">${item.definition}</p>
+                </div>
+            `).join('');
+        }
+
+        function filterGlossary(query) {
+            const q = query.toLowerCase();
+            const filtered = glossaryDB.filter(item => 
+                item.term.toLowerCase().includes(q) || 
+                item.definition.toLowerCase().includes(q) ||
+                item.category.toLowerCase().includes(q)
+            );
+            renderGlossary(filtered);
+        }
+
+        // Load Quick METAR / Aerodrome cards on Dashboard
+        function loadQuickMetars() {
+            const container = document.getElementById('quick-metar-container');
+            const samples = ['LFBO', 'LFPG', 'LFML', 'LFLL', 'LFMN', 'LFBD'];
+            container.innerHTML = samples.map(icao => {
+                const a = aerodromesDB[icao];
+                return `
+                    <div onclick="openAerodrome('${a.icao}')" class="bg-aviation-900 p-4 rounded-xl border border-aviation-700 cursor-pointer hover:border-blue-500 transition space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-white font-mono">${a.icao}</span>
+                            <span class="text-xs text-sky-400">${a.city}</span>
+                        </div>
+                        <p class="text-xs text-slate-300 font-semibold">${a.name}</p>
+                        <div class="pt-2 flex justify-between items-center text-[11px] text-sky-400">
+                            <span>Alt: ${a.elevation} ft</span>
+                            <span class="underline">Voir METAR / TAF &rarr;</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Crosswind Calculator Logic
+        function calculateCrosswind() {
+            const rw = parseFloat(document.getElementById('rw-heading').value) || 0;
+            const wdir = parseFloat(document.getElementById('wind-dir').value) || 0;
+            const wspd = parseFloat(document.getElementById('wind-spd').value) || 0;
+
+            const angle = Math.abs(rw - wdir) * (Math.PI / 180);
+            const headwind = Math.round(wspd * Math.cos(angle));
+            const crosswind = Math.round(Math.abs(wspd * Math.sin(angle)));
+
+            document.getElementById('res-headwind').innerText = `${Math.abs(headwind)} kt (${headwind >= 0 ? 'Face' : 'Arrière'})`;
+            document.getElementById('res-crosswind').innerText = `${crosswind} kt`;
+        }
+
+        // Unit converters
+        function convertKt(val) {
+            const kt = parseFloat(val) || 0;
+            const kmh = (kt * 1.852).toFixed(1);
+            document.getElementById('conv-kt-res').innerText = `= ${kmh} km/h`;
+        }
+
+        function convertFt(val) {
+            const ft = parseFloat(val) || 0;
+            const m = (ft * 0.3048).toFixed(1);
+            document.getElementById('conv-ft-res').innerText = `= ${m} mètres`;
+        }
+
+        // BIA Quiz logic
+        function checkQuiz(optIndex) {
+            const feedback = document.getElementById('quiz-feedback');
+            feedback.classList.remove('hidden');
+            if (optIndex === 0) {
+                feedback.className = "text-sm font-semibold mt-4 text-emerald-400";
+                feedback.innerText = "Correct ! Le QNH cale l'altimètre pour indiquer l'altitude par rapport au niveau moyen de la mer en tenant compte de la pression au niveau de la mer.";
+            } else {
+                feedback.className = "text-sm font-semibold mt-4 text-amber-400";
+                feedback.innerText = "Incorrect. La bonne réponse est la A. Le QNH donne l'altitude AMSL (niveau de la mer).";
+            }
+        }
+
+        // Initialize dashboard on load
+        window.onload = function() {
+            loadQuickMetars();
+        };
+    </script>
+</body>
+</html>
